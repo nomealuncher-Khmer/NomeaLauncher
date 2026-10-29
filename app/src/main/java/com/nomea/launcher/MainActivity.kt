@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -33,7 +34,12 @@ class MainActivity : Activity() {
         "1.16.5"
     )
 
+    private val selectedMods = mutableListOf<Uri>()
     private var selectedVersion = "1.21.11"
+
+    companion object {
+        private const val PICK_MOD_REQUEST = 101
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,7 +92,8 @@ class MainActivity : Activity() {
     private fun addText(
         value: String,
         size: Float,
-        color: Int
+        color: Int,
+        bold: Boolean = false
     ) {
         val text = TextView(this).apply {
             this.text = value
@@ -94,6 +101,10 @@ class MainActivity : Activity() {
             setTextColor(color)
             gravity = Gravity.CENTER
             setPadding(8, 12, 8, 12)
+
+            if (bold) {
+                typeface = Typeface.DEFAULT_BOLD
+            }
         }
 
         content.addView(text)
@@ -124,7 +135,7 @@ class MainActivity : Activity() {
     private fun showHome() {
         content.removeAllViews()
 
-        addText("WELCOME TO NOMEA", 24f, red)
+        addText("WELCOME TO NOMEA", 24f, red, true)
         addText("MINECRAFT JAVA LAUNCHER", 14f, white)
         addText("Selected version: $selectedVersion", 16f, gray)
 
@@ -137,36 +148,40 @@ class MainActivity : Activity() {
         }
 
         addButton("✦ MODS") {
-            showPage(
-                "MODS",
-                "Mod management",
-                "Mod installation is not available yet."
-            )
+            showMods()
         }
 
         addButton("⚙ SETTINGS") {
             showPage(
                 "SETTINGS",
                 "Nomea Launcher",
-                "Theme: Black & Red\nVersion: 1.0"
+                "Theme: Black & Red\nApp Version: 1.0"
             )
         }
 
         addButton("👤 ACCOUNT") {
             showPage(
                 "ACCOUNT",
-                "Player account",
-                "Official Microsoft sign-in is not implemented yet."
+                "Player Account",
+                "Microsoft sign-in is not implemented yet."
             )
         }
 
-        addText("NOMEA • BLACK & RED", 12f, red)
+        addButton("ℹ ABOUT") {
+            showPage(
+                "ABOUT NOMEA",
+                "NOMEA LAUNCHER",
+                "Version 1.0\nBlack & Red Gaming Launcher"
+            )
+        }
+
+        addText("NOMEA • BLACK & RED", 12f, red, true)
     }
 
     private fun showVersions() {
         content.removeAllViews()
 
-        addText("MINECRAFT VERSIONS", 23f, red)
+        addText("MINECRAFT VERSIONS", 23f, red, true)
         addText("Choose a version", 15f, white)
         addText("Current: $selectedVersion", 16f, gray)
 
@@ -200,6 +215,129 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun showMods() {
+        content.removeAllViews()
+
+        addText("MODS MANAGER", 24f, red, true)
+        addText(
+            "Selected files: ${selectedMods.size}",
+            15f,
+            white
+        )
+
+        addText(
+            "Choose compatible .jar mod files.",
+            13f,
+            gray
+        )
+
+        addButton("+ ADD MOD FILE") {
+            pickModFile()
+        }
+
+        if (selectedMods.isEmpty()) {
+            addText("No mod files selected.", 14f, gray)
+        } else {
+            selectedMods.forEachIndexed { index, uri ->
+                val name = getFileName(uri)
+
+                addText(
+                    "${index + 1}. $name",
+                    14f,
+                    white
+                )
+
+                addButton("REMOVE $name") {
+                    selectedMods.remove(uri)
+                    showMods()
+                }
+            }
+        }
+
+        addText(
+            "Note: selecting a file does not install it into Minecraft.",
+            12f,
+            gray
+        )
+
+        addButton("← BACK TO HOME") {
+            showHome()
+        }
+    }
+
+    private fun pickModFile() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+
+        try {
+            startActivityForResult(intent, PICK_MOD_REQUEST)
+        } catch (e: Exception) {
+            Toast.makeText(
+                this,
+                "Unable to open file picker.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    @Deprecated("Deprecated by Android API; kept for broad compatibility")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == PICK_MOD_REQUEST &&
+            resultCode == RESULT_OK
+        ) {
+            val uri = data?.data ?: return
+            val name = getFileName(uri)
+
+            if (!name.endsWith(".jar", ignoreCase = true)) {
+                Toast.makeText(
+                    this,
+                    "Please select a .jar file.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+
+            if (!selectedMods.contains(uri)) {
+                selectedMods.add(uri)
+            }
+
+            showMods()
+        }
+    }
+
+    private fun getFileName(uri: Uri): String {
+        var name = uri.lastPathSegment ?: "Unknown file"
+
+        try {
+            contentResolver.query(
+                uri,
+                null,
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                val index = cursor.getColumnIndex(
+                    android.provider.OpenableColumns.DISPLAY_NAME
+                )
+
+                if (cursor.moveToFirst() && index >= 0) {
+                    name = cursor.getString(index) ?: name
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        return name
+    }
+
     private fun showPage(
         title: String,
         subtitle: String,
@@ -207,7 +345,7 @@ class MainActivity : Activity() {
     ) {
         content.removeAllViews()
 
-        addText(title, 24f, red)
+        addText(title, 24f, red, true)
         addText(subtitle, 17f, white)
         addText(description, 14f, gray)
 
@@ -223,11 +361,19 @@ class MainActivity : Activity() {
         )
 
         for (packageName in packages) {
-            val intent: Intent? =
+            val intent =
                 packageManager.getLaunchIntentForPackage(packageName)
 
             if (intent != null) {
-                startActivity(intent)
+                try {
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    Toast.makeText(
+                        this,
+                        "Unable to open Minecraft Launcher.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
                 return
             }
         }
