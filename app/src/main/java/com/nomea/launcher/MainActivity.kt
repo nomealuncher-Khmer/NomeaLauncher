@@ -8,11 +8,15 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import java.util.UUID
 
 class MainActivity : Activity() {
 
@@ -26,6 +30,7 @@ class MainActivity : Activity() {
 
     private var selectedVersion = "1.21.11"
     private var selectedRam = 2048
+    private var playerName = ""
 
     private val selectedMods = mutableListOf<Uri>()
 
@@ -54,6 +59,10 @@ class MainActivity : Activity() {
         ) ?: "1.21.11"
 
         selectedRam = prefs.getInt("ram", 2048)
+
+        playerName = prefs.getString(
+            "player_name", ""
+        ) ?: ""
 
         val theme = prefs.getString("theme", "RED")
 
@@ -159,6 +168,16 @@ class MainActivity : Activity() {
         addText("Version: $selectedVersion", 16f, gray)
         addText("RAM: ${selectedRam}MB", 14f, gray)
 
+        addText(
+            if (playerName.isEmpty()) {
+                "Player: Not set"
+            } else {
+                "Player: $playerName"
+            },
+            15f,
+            white
+        )
+
         addButton("▶ PLAY MINECRAFT") {
             openMinecraft()
         }
@@ -176,11 +195,7 @@ class MainActivity : Activity() {
         }
 
         addButton("👤 ACCOUNT") {
-            showPage(
-                "ACCOUNT",
-                "PLAYER ACCOUNT",
-                "Microsoft sign-in is not implemented yet."
-            )
+            showAccount()
         }
 
         addButton("ℹ ABOUT") {
@@ -219,12 +234,6 @@ class MainActivity : Activity() {
                     .putString("selected_version", version)
                     .apply()
 
-                Toast.makeText(
-                    this,
-                    "Selected $version",
-                    Toast.LENGTH_SHORT
-                ).show()
-
                 showVersions()
             }
         }
@@ -258,11 +267,7 @@ class MainActivity : Activity() {
 
                 val name = getFileName(uri)
 
-                addText(
-                    "${index + 1}. $name",
-                    14f,
-                    white
-                )
+                addText("${index + 1}. $name", 14f, white)
 
                 addButton("REMOVE $name") {
                     selectedMods.remove(uri)
@@ -297,18 +302,13 @@ class MainActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
-        super.onActivityResult(
-            requestCode,
-            resultCode,
-            data
-        )
+        super.onActivityResult(requestCode, resultCode, data)
 
         if (
             requestCode == PICK_MOD_REQUEST &&
             resultCode == RESULT_OK
         ) {
             val uri = data?.data ?: return
-
             val name = getFileName(uri)
 
             if (!name.endsWith(".jar", true)) {
@@ -333,11 +333,7 @@ class MainActivity : Activity() {
 
         try {
             contentResolver.query(
-                uri,
-                null,
-                null,
-                null,
-                null
+                uri, null, null, null, null
             )?.use { cursor ->
 
                 val index = cursor.getColumnIndex(
@@ -360,14 +356,9 @@ class MainActivity : Activity() {
         content.removeAllViews()
 
         addText("⚙ SETTINGS", 25f, red, true)
-
         addText("RAM SETTINGS", 20f, white, true)
 
-        addText(
-            "Current RAM: ${selectedRam}MB",
-            16f,
-            gray
-        )
+        addText("Current RAM: ${selectedRam}MB", 16f, gray)
 
         listOf(512, 1024, 2048, 4096).forEach { value ->
 
@@ -392,25 +383,11 @@ class MainActivity : Activity() {
         addText("THEME SETTINGS", 20f, white, true)
 
         addButton("🔴 RED THEME") {
-            red = Color.rgb(235, 35, 55)
-
-            getPreferences(MODE_PRIVATE)
-                .edit()
-                .putString("theme", "RED")
-                .apply()
-
-            showSettings()
+            changeTheme("RED")
         }
 
         addButton("🟣 PURPLE THEME") {
-            red = Color.rgb(170, 70, 255)
-
-            getPreferences(MODE_PRIVATE)
-                .edit()
-                .putString("theme", "PURPLE")
-                .apply()
-
-            showSettings()
+            changeTheme("PURPLE")
         }
 
         addText(
@@ -424,49 +401,28 @@ class MainActivity : Activity() {
         }
     }
 
-    // OTHER PAGES
+    private fun changeTheme(theme: String) {
+        red = if (theme == "PURPLE") {
+            Color.rgb(170, 70, 255)
+        } else {
+            Color.rgb(235, 35, 55)
+        }
 
-    private fun showPage(
-        title: String,
-        subtitle: String,
-        description: String
-    ) {
+        getPreferences(MODE_PRIVATE)
+            .edit()
+            .putString("theme", theme)
+            .apply()
+
+        showSettings()
+    }
+
+    // ACCOUNT
+
+    private fun showAccount() {
         content.removeAllViews()
 
-        addText(title, 24f, red, true)
-        addText(subtitle, 17f, white)
-        addText(description, 14f, gray)
+        addText("👤 ACCOUNT", 25f, red, true)
 
-        addButton("← BACK TO HOME") {
-            showHome()
-        }
-    }
-
-    // PLAY MINECRAFT
-
-    private fun openMinecraft() {
-        val packages = listOf(
-            "net.kdt.pojavlaunch",
-            "net.kdt.pojavlaunch.debug"
-        )
-
-        for (packageName in packages) {
-
-            val intent =
-                packageManager.getLaunchIntentForPackage(
-                    packageName
-                )
-
-            if (intent != null) {
-                startActivity(intent)
-                return
-            }
-        }
-
-        Toast.makeText(
-            this,
-            "Install a compatible Minecraft Java launcher first.",
-            Toast.LENGTH_LONG
-        ).show()
-    }
-}
+        addText(
+            "PLAYER PROFILE",
+            18f
