@@ -17,7 +17,7 @@ import android.widget.Toast
 class MainActivity : Activity() {
 
     private val black = Color.rgb(12, 12, 14)
-    private val red = Color.rgb(235, 35, 55)
+    private var red = Color.rgb(235, 35, 55)
     private val white = Color.WHITE
     private val gray = Color.LTGRAY
 
