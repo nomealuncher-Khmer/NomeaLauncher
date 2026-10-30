@@ -17,11 +17,17 @@ import android.widget.Toast
 class MainActivity : Activity() {
 
     private val black = Color.rgb(12, 12, 14)
-    private var red = Color.rgb(235, 35, 55)
     private val white = Color.WHITE
     private val gray = Color.LTGRAY
 
+    private var red = Color.rgb(235, 35, 55)
+
     private lateinit var content: LinearLayout
+
+    private var selectedVersion = "1.21.11"
+    private var selectedRam = 2048
+
+    private val selectedMods = mutableListOf<Uri>()
 
     private val versions = listOf(
         "1.21.11",
@@ -34,9 +40,6 @@ class MainActivity : Activity() {
         "1.16.5"
     )
 
-    private val selectedMods = mutableListOf<Uri>()
-    private var selectedVersion = "1.21.11"
-
     companion object {
         private const val PICK_MOD_REQUEST = 101
     }
@@ -44,9 +47,21 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        selectedVersion = getPreferences(MODE_PRIVATE)
-            .getString("selected_version", "1.21.11")
-            ?: "1.21.11"
+        val prefs = getPreferences(MODE_PRIVATE)
+
+        selectedVersion = prefs.getString(
+            "selected_version", "1.21.11"
+        ) ?: "1.21.11"
+
+        selectedRam = prefs.getInt("ram", 2048)
+
+        val theme = prefs.getString("theme", "RED")
+
+        red = if (theme == "PURPLE") {
+            Color.rgb(170, 70, 255)
+        } else {
+            Color.rgb(235, 35, 55)
+        }
 
         window.statusBarColor = black
         window.navigationBarColor = black
@@ -86,6 +101,7 @@ class MainActivity : Activity() {
         )
 
         setContentView(root)
+
         showHome()
     }
 
@@ -129,15 +145,19 @@ class MainActivity : Activity() {
         )
 
         params.setMargins(0, 8, 0, 8)
+
         content.addView(button, params)
     }
+
+    // HOME
 
     private fun showHome() {
         content.removeAllViews()
 
         addText("WELCOME TO NOMEA", 24f, red, true)
         addText("MINECRAFT JAVA LAUNCHER", 14f, white)
-        addText("Selected version: $selectedVersion", 16f, gray)
+        addText("Version: $selectedVersion", 16f, gray)
+        addText("RAM: ${selectedRam}MB", 14f, gray)
 
         addButton("▶ PLAY MINECRAFT") {
             openMinecraft()
@@ -152,17 +172,13 @@ class MainActivity : Activity() {
         }
 
         addButton("⚙ SETTINGS") {
-            showPage(
-                "SETTINGS",
-                "Nomea Launcher",
-                "Theme: Black & Red\nApp Version: 1.0"
-            )
+            showSettings()
         }
 
         addButton("👤 ACCOUNT") {
             showPage(
                 "ACCOUNT",
-                "Player Account",
+                "PLAYER ACCOUNT",
                 "Microsoft sign-in is not implemented yet."
             )
         }
@@ -178,6 +194,8 @@ class MainActivity : Activity() {
         addText("NOMEA • BLACK & RED", 12f, red, true)
     }
 
+    // VERSIONS
+
     private fun showVersions() {
         content.removeAllViews()
 
@@ -186,6 +204,7 @@ class MainActivity : Activity() {
         addText("Current: $selectedVersion", 16f, gray)
 
         versions.forEach { version ->
+
             addButton(
                 if (version == selectedVersion) {
                     "✓ Minecraft $version"
@@ -215,20 +234,17 @@ class MainActivity : Activity() {
         }
     }
 
+    // MODS
+
     private fun showMods() {
         content.removeAllViews()
 
         addText("MODS MANAGER", 24f, red, true)
+
         addText(
             "Selected files: ${selectedMods.size}",
             15f,
             white
-        )
-
-        addText(
-            "Choose compatible .jar mod files.",
-            13f,
-            gray
         )
 
         addButton("+ ADD MOD FILE") {
@@ -239,6 +255,7 @@ class MainActivity : Activity() {
             addText("No mod files selected.", 14f, gray)
         } else {
             selectedMods.forEachIndexed { index, uri ->
+
                 val name = getFileName(uri)
 
                 addText(
@@ -255,7 +272,7 @@ class MainActivity : Activity() {
         }
 
         addText(
-            "Note: selecting a file does not install it into Minecraft.",
+            "Selecting a file does not install it into Minecraft.",
             12f,
             gray
         )
@@ -271,32 +288,30 @@ class MainActivity : Activity() {
             type = "*/*"
         }
 
-        try {
-            startActivityForResult(intent, PICK_MOD_REQUEST)
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                "Unable to open file picker.",
-                Toast.LENGTH_LONG
-            ).show()
-        }
+        startActivityForResult(intent, PICK_MOD_REQUEST)
     }
 
-    @Deprecated("Deprecated by Android API; kept for broad compatibility")
+    @Deprecated("Deprecated by Android API")
     override fun onActivityResult(
         requestCode: Int,
         resultCode: Int,
         data: Intent?
     ) {
-        super.onActivityResult(requestCode, resultCode, data)
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
 
-        if (requestCode == PICK_MOD_REQUEST &&
+        if (
+            requestCode == PICK_MOD_REQUEST &&
             resultCode == RESULT_OK
         ) {
             val uri = data?.data ?: return
+
             val name = getFileName(uri)
 
-            if (!name.endsWith(".jar", ignoreCase = true)) {
+            if (!name.endsWith(".jar", true)) {
                 Toast.makeText(
                     this,
                     "Please select a .jar file.",
@@ -324,6 +339,7 @@ class MainActivity : Activity() {
                 null,
                 null
             )?.use { cursor ->
+
                 val index = cursor.getColumnIndex(
                     android.provider.OpenableColumns.DISPLAY_NAME
                 )
@@ -337,6 +353,78 @@ class MainActivity : Activity() {
 
         return name
     }
+
+    // SETTINGS
+
+    private fun showSettings() {
+        content.removeAllViews()
+
+        addText("⚙ SETTINGS", 25f, red, true)
+
+        addText("RAM SETTINGS", 20f, white, true)
+
+        addText(
+            "Current RAM: ${selectedRam}MB",
+            16f,
+            gray
+        )
+
+        listOf(512, 1024, 2048, 4096).forEach { value ->
+
+            addButton(
+                if (selectedRam == value) {
+                    "✓ ${value}MB RAM"
+                } else {
+                    "${value}MB RAM"
+                }
+            ) {
+                selectedRam = value
+
+                getPreferences(MODE_PRIVATE)
+                    .edit()
+                    .putInt("ram", value)
+                    .apply()
+
+                showSettings()
+            }
+        }
+
+        addText("THEME SETTINGS", 20f, white, true)
+
+        addButton("🔴 RED THEME") {
+            red = Color.rgb(235, 35, 55)
+
+            getPreferences(MODE_PRIVATE)
+                .edit()
+                .putString("theme", "RED")
+                .apply()
+
+            showSettings()
+        }
+
+        addButton("🟣 PURPLE THEME") {
+            red = Color.rgb(170, 70, 255)
+
+            getPreferences(MODE_PRIVATE)
+                .edit()
+                .putString("theme", "PURPLE")
+                .apply()
+
+            showSettings()
+        }
+
+        addText(
+            "RAM setting is saved in this app. It is not connected to Minecraft yet.",
+            12f,
+            gray
+        )
+
+        addButton("← BACK TO HOME") {
+            showHome()
+        }
+    }
+
+    // OTHER PAGES
 
     private fun showPage(
         title: String,
@@ -354,6 +442,8 @@ class MainActivity : Activity() {
         }
     }
 
+    // PLAY MINECRAFT
+
     private fun openMinecraft() {
         val packages = listOf(
             "net.kdt.pojavlaunch",
@@ -361,19 +451,14 @@ class MainActivity : Activity() {
         )
 
         for (packageName in packages) {
+
             val intent =
-                packageManager.getLaunchIntentForPackage(packageName)
+                packageManager.getLaunchIntentForPackage(
+                    packageName
+                )
 
             if (intent != null) {
-                try {
-                    startActivity(intent)
-                } catch (_: Exception) {
-                    Toast.makeText(
-                        this,
-                        "Unable to open Minecraft Launcher.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                startActivity(intent)
                 return
             }
         }
